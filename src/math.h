@@ -43,6 +43,12 @@ struct vec3d{
         return result;
     }
 
+    // Magnitude
+    float Magnitude() const{ return sqrt(x*x + y*y + z*z); }
+
+    // Normalization
+    vec3d Normalized() const{ return *this / Magnitude(); }
+
     // Zero vector
     vec3d Zero(){ x = 0; y = 0; z = 0; return *this; }
 };
@@ -100,6 +106,22 @@ struct mat3x3{
         }
     }
 
+    //Return Transposed matrix
+    mat3x3 Transposed() const{
+        mat3x3 result;
+        for(int i = 0; i < 3; i++){
+            for(int j = 0; j < 3; j++){
+                result.data[i][j] = data[j][i];
+            }
+        }
+        return result;
+    }
+
+    //Transpose this
+    void Transpose(){
+        *this = Transposed();
+    }
+
     // Identity matrix
     static mat3x3 Identity() {
         mat3x3 identity;
@@ -107,6 +129,47 @@ struct mat3x3{
         identity.data[1][1] = 1;
         identity.data[2][2] = 1;
         return identity;
+    }
+
+    // Matrix from axis-angle
+    static mat3x3 FromAxisAngle(const vec3d& axis, float angle){
+        mat3x3 result;
+        float c = cos(angle);
+        float s = sin(angle);
+        float t = 1 - c;
+        result.data[0][0] = t * axis.x * axis.x + c;
+        result.data[0][1] = t * axis.x * axis.y - s * axis.z;
+        result.data[0][2] = t * axis.x * axis.z + s * axis.y;
+        result.data[1][0] = t * axis.x * axis.y + s * axis.z;
+        result.data[1][1] = t * axis.y * axis.y + c;
+        result.data[1][2] = t * axis.y * axis.z - s * axis.x;
+        result.data[2][0] = t * axis.x * axis.z - s * axis.y;
+        result.data[2][1] = t * axis.y * axis.z + s * axis.x;
+        result.data[2][2] = t * axis.z * axis.z + c;
+        return result;
+    }
+
+    // To quaternion
+    Quat ToQuaternion() const{
+        float trace = data[0][0] + data[1][1] + data[2][2];
+        if(trace > 0){
+            float s = 0.5f / sqrt(trace + 1.0f);
+            return Quat(0.25f / s, (data[2][1] - data[1][2]) * s, (data[0][2] - data[2][0]) * s, (data[1][0] - data[0][1]) * s);
+        }
+        else{
+            if(data[0][0] > data[1][1] && data[0][0] > data[2][2]){
+                float s = 2.0f * sqrt(1.0f + data[0][0] - data[1][1] - data[2][2]);
+                return Quat((data[2][1] - data[1][2]) / s, 0.25f * s, (data[0][1] + data[1][0]) / s, (data[0][2] + data[2][0]) / s);
+            }
+            else if(data[1][1] > data[2][2]){
+                float s = 2.0f * sqrt(1.0f + data[1][1] - data[0][0] - data[2][2]);
+                return Quat((data[0][2] - data[2][0]) / s, (data[0][1] + data[1][0]) / s, 0.25f * s, (data[1][2] + data[2][1]) / s);
+            }
+            else{
+                float s = 2.0f * sqrt(1.0f + data[2][2] - data[0][0] - data[1][1]);
+                return Quat((data[1][0] - data[0][1]) / s, (data[0][2] + data[2][0]) / s, (data[1][2] + data[2][1]) / s, 0.25f * s);
+            }
+        }
     }
 
     // Zero matrix
@@ -119,6 +182,40 @@ struct mat3x3{
     }
 };
 
+// Define the quaternion structure
+struct Quat{
+    float w, x, y, z;  // Components
+
+    // Constructor
+    Quat(float w = 1, float x = 0, float y = 0, float z = 0) : w(w), x(x), y(y), z(z) {}
+
+    // Retrun Normalizated quaternion
+    Quat Normalized() const{
+        float mag = sqrt(w*w + x*x + y*y + z*z);
+        return Quat(w/mag, x/mag, y/mag, z/mag);
+    }
+
+    // Normalize this
+    void Normalize(){
+        *this = Normalized();
+    }
+
+    // To matrix
+    mat3x3 ToMatrix() const{
+        mat3x3 result;
+        result.data[0][0] = 1 - 2*y*y - 2*z*z;
+        result.data[0][1] = 2*x*y - 2*z*w;
+        result.data[0][2] = 2*x*z + 2*y*w;
+        result.data[1][0] = 2*x*y + 2*z*w;
+        result.data[1][1] = 1 - 2*x*x - 2*z*z;
+        result.data[1][2] = 2*y*z - 2*x*w;
+        result.data[2][0] = 2*x*z - 2*y*w;
+        result.data[2][1] = 2*y*z + 2*x*w;
+        result.data[2][2] = 1 - 2*x*x - 2*y*y;
+        return result;
+    }
+};
+
 // Scalar multiplication
 mat3x3 operator*(const float scalar, const mat3x3& matrix){
     mat3x3 result;
@@ -127,5 +224,13 @@ mat3x3 operator*(const float scalar, const mat3x3& matrix){
             result.data[i][j] = matrix.data[i][j] * scalar;
         }
     }
+    return result;
+}
+
+vec3d operator*(const mat3x3 matrix, const vec3d& vector){
+    vec3d result;
+    result.x = matrix.data[0][0] * vector.x + matrix.data[0][1] * vector.y + matrix.data[0][2] * vector.z;
+    result.y = matrix.data[1][0] * vector.x + matrix.data[1][1] * vector.y + matrix.data[1][2] * vector.z;
+    result.z = matrix.data[2][0] * vector.x + matrix.data[2][1] * vector.y + matrix.data[2][2] * vector.z;
     return result;
 }

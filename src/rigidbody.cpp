@@ -46,6 +46,17 @@ void rigidbody::AddCollider(Collider& collider)
     }
 }
 
+// Update the orientation based on the angular velocity
+void rigidbody::UpdateOrientation(void){
+    // Orthonomalize the orientation matrix
+    Quat q = orientation.ToQuaternion();
+    q.Normalize();
+    orientation = q.ToMatrix();
+
+    // Update the inverse orientation matrix
+    inverseOrientation = orientation.Transposed();
+}
+
 // Convert a global point to a local point
 const vec3d rigidbody::GlobalToLocalPoint(const vec3d& point) const
 {
